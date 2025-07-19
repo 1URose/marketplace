@@ -3,8 +3,7 @@ package db
 import (
 	"fmt"
 	"github.com/1URose/marketplace/internal/auth_signup/infrastructure/config/redis"
-	"github.com/1URose/marketplace/internal/user_profile/infrastructure/config/postgresql"
-
+	"github.com/1URose/marketplace/internal/common/db/postgresql"
 	"log"
 )
 

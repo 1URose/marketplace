@@ -2,7 +2,7 @@ package routes
 
 import (
 	"context"
-	pgConfig "github.com/1URose/marketplace/internal/user_profile/infrastructure/config/postgresql"
+	pgConfig "github.com/1URose/marketplace/internal/common/db/postgresql"
 	pgRepo "github.com/1URose/marketplace/internal/user_profile/infrastructure/repository/postgresql"
 	"github.com/1URose/marketplace/internal/user_profile/transport/rest/user"
 	"github.com/1URose/marketplace/internal/user_profile/use_cases"

@@ -1,11 +1,13 @@
 package auth
 
 import (
+	"fmt"
 	"github.com/1URose/marketplace/internal/auth_signup/domain/redis/entity"
 	"github.com/1URose/marketplace/internal/auth_signup/transport/rest/auth/dto"
 	"github.com/1URose/marketplace/internal/auth_signup/use_cases"
 	"github.com/1URose/marketplace/internal/common/jwt"
 	"github.com/gin-gonic/gin"
+	"strconv"
 	"strings"
 
 	"log"
@@ -90,7 +92,7 @@ func (ah *Handler) Login(ctx *gin.Context) {
 		return
 	}
 
-	ok, err := ah.AuthService.Login(ctx, loginReq)
+	existsUser, err := ah.AuthService.Login(ctx, loginReq)
 
 	if err != nil {
 
@@ -101,7 +103,7 @@ func (ah *Handler) Login(ctx *gin.Context) {
 		return
 	}
 
-	if !ok {
+	if existsUser == nil {
 
 		log.Printf("[handler:auth] invalid credentials for %q", loginReq.Email)
 
@@ -112,7 +114,7 @@ func (ah *Handler) Login(ctx *gin.Context) {
 
 	log.Printf("[handler:auth] authentication succeeded for %q", loginReq.Email)
 
-	accessToken, err := jwt.GenerateAccessToken(loginReq.Email)
+	accessToken, err := jwt.GenerateAccessToken(existsUser.Email, existsUser.ID)
 
 	if err != nil {
 
@@ -123,7 +125,7 @@ func (ah *Handler) Login(ctx *gin.Context) {
 		return
 	}
 
-	refreshToken, err := jwt.GenerateRefreshToken(loginReq.Email)
+	refreshToken, err := jwt.GenerateRefreshToken(existsUser.Email, existsUser.ID)
 
 	if err != nil {
 
@@ -162,102 +164,105 @@ func (ah *Handler) Login(ctx *gin.Context) {
 // @Failure      401             {object}  dto.ErrorResponse     "Invalid or missing token"
 // @Failure      500             {object}  dto.ErrorResponse     "Server error"
 // @Router       /auth/refresh   [post]
-func (ah *Handler) Refresh(c *gin.Context) {
-	if authH := c.GetHeader("Authorization"); authH != "" {
+func (ah *Handler) Refresh(ctx *gin.Context) {
+	if authH := ctx.GetHeader("Authorization"); authH != "" {
 		parts := strings.SplitN(authH, " ", 2)
 		if len(parts) == 2 && parts[0] == "Bearer" {
 			if _, err := jwt.ValidateAccessToken(parts[1]); err == nil {
-				c.JSON(http.StatusOK, gin.H{"status": "access token still valid"})
+				ctx.JSON(http.StatusOK, gin.H{"status": "access token still valid"})
 				return
 			}
 		}
 	}
 
-	raw := c.GetHeader("X-Refresh-Token")
+	raw := ctx.GetHeader("X-Refresh-Token")
 	if raw == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Missing refresh token"})
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "Missing refresh token"})
 		return
 	}
 	parts := strings.SplitN(raw, " ", 2)
 	if len(parts) != 2 || parts[0] != "Bearer" {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid refresh token format"})
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid refresh token format"})
 		return
 	}
 	refreshToken := parts[1]
 
 	claims, err := jwt.ValidateRefreshToken(refreshToken)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid refresh token"})
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid refresh token"})
 		return
 	}
 
-	session, err := ah.AuthService.RedisRepo.Get(c, claims.Email)
+	session, err := ah.AuthService.RedisRepo.Get(ctx, claims.Email)
 	if err != nil || session == nil || session.RefreshToken != refreshToken {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Session not found or token mismatch"})
+		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "Session not found or token mismatch"})
 		return
 	}
-
-	newAccess, err := jwt.GenerateAccessToken(claims.Email)
+	userId, err := strconv.Atoi(claims.Subject)
+	if err != nil {
+		log.Printf("[handler:auth][ERROR] strconv.Atoi failed: %v", err)
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse user ID"})
+		return
+	}
+	newAccess, err := jwt.GenerateAccessToken(claims.Email, userId)
 	if err != nil {
 		log.Printf("[handler:auth][ERROR] GenerateAccessToken failed: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate new access token"})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate new access token"})
 		return
 	}
-	newRefresh, err := jwt.GenerateRefreshToken(claims.Email)
+	newRefresh, err := jwt.GenerateRefreshToken(claims.Email, userId)
 	if err != nil {
 		log.Printf("[handler:auth][ERROR] GenerateRefreshToken failed: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate new refresh token"})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate new refresh token"})
 		return
 	}
 
 	session.RefreshToken = newRefresh
-	if err := ah.AuthService.RedisRepo.Set(c, session); err != nil {
+	if err := ah.AuthService.RedisRepo.Set(ctx, session); err != nil {
 		log.Printf("[handler:auth][ERROR] Redis Set failed: %v", err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update session"})
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update session"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	ctx.JSON(http.StatusOK, gin.H{
 		"access_token":  newAccess,
 		"refresh_token": newRefresh,
 	})
 }
 
-func Middleware() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		authHeader := c.GetHeader("Authorization")
-		if authHeader == "" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Authorization header missing"})
-			return
-		}
-
-		parts := strings.SplitN(authHeader, " ", 2)
-		if len(parts) != 2 || parts[0] != "Bearer" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid Authorization header format"})
-			return
-		}
-		accessToken := parts[1]
-
-		claims, err := jwt.ValidateAccessToken(accessToken)
-		if err != nil {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid or expired access token"})
-			return
-		}
-
-		c.Set("userEmail", claims.Email)
-
-		c.Next()
+func OptionalAuthMiddleware() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		_ = parseAndSetClaims(ctx)
+		ctx.Next()
 	}
 }
 
-func OptionalMiddleware() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		auth := c.GetHeader("Authorization")
-		if parts := strings.SplitN(auth, " ", 2); len(parts) == 2 && parts[0] == "Bearer" {
-			if claims, err := jwt.ValidateAccessToken(parts[1]); err == nil {
-				c.Set("userEmail", claims.Email)
-			}
+func RequireAuthMiddleware() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		if err := parseAndSetClaims(ctx); err != nil {
+			ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+				"error": "unauthorized",
+			})
+			return
 		}
-		c.Next()
+		ctx.Next()
 	}
+}
+
+func parseAndSetClaims(ctx *gin.Context) error {
+	auth := ctx.GetHeader("Authorization")
+	parts := strings.SplitN(auth, " ", 2)
+	if len(parts) != 2 || parts[0] != "Bearer" {
+		return fmt.Errorf("no bearer token")
+	}
+	claims, err := jwt.ValidateAccessToken(parts[1])
+	if err != nil {
+		return err
+	}
+
+	//ctx.Set("userEmail", claims.Email)
+	if uid, err := strconv.Atoi(claims.Subject); err == nil {
+		ctx.Set("userId", uid)
+	}
+	return nil
 }

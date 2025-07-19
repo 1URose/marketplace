@@ -1,12 +1,21 @@
 package dto
 
+import (
+	"github.com/1URose/marketplace/internal/announcement/domain/ad/entity"
+)
+
 type AdResponse struct {
-	ID          int    `json:"id"`
-	Title       string `json:"title"`
-	Description string `json:"description"`
-	ImageURL    string `json:"image_url"`
-	Price       int64  `json:"price"`
-	AuthorID    int    `json:"author_id"`
-	CreatedAt   string `json:"created_at"`
-	IsMine      bool   `json:"is_mine,omitempty"`
+	AdBaseResponse
+	IsMine bool `json:"is_mine"`
+}
+
+func NewAdResponse(ad *entity.Ad, userID int) *AdResponse {
+	var isMine bool
+	if userID == ad.AuthorID {
+		isMine = true
+	}
+	return &AdResponse{
+		AdBaseResponse: NewAdBaseResponse(ad),
+		IsMine:         isMine,
+	}
 }

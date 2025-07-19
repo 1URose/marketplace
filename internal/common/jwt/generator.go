@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/golang-jwt/jwt/v4"
@@ -20,7 +21,7 @@ const (
 	RefreshTTL = 24 * time.Hour
 )
 
-func GenerateAccessToken(email string) (string, error) {
+func GenerateAccessToken(email string, UserId int) (string, error) {
 
 	log.Printf("[jwt] GenerateAccessToken called for email=%q", email)
 
@@ -32,7 +33,7 @@ func GenerateAccessToken(email string) (string, error) {
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(AccessTTL)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			Subject:   email,
+			Subject:   strconv.Itoa(UserId),
 		},
 	}
 
@@ -52,7 +53,7 @@ func GenerateAccessToken(email string) (string, error) {
 	return signed, nil
 }
 
-func GenerateRefreshToken(email string) (string, error) {
+func GenerateRefreshToken(email string, UserId int) (string, error) {
 
 	log.Printf("[jwt] GenerateRefreshToken called for email=%q", email)
 
@@ -64,7 +65,7 @@ func GenerateRefreshToken(email string) (string, error) {
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(RefreshTTL)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
-			Subject:   email,
+			Subject:   strconv.Itoa(UserId),
 		},
 	}
 
