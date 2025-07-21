@@ -2,7 +2,7 @@
 // @title Marketplace API
 // @version 1.0
 // @description API реализующее работу с пользователями и объявлениями
-// @host localhost:8080
+// @host localhost:8000
 // @BasePath /
 // @schemes http
 //
@@ -38,12 +38,7 @@ import (
 func Run(ctx context.Context) error {
 	engine := initializeGin()
 
-	generalConfig, err := config.LoadGeneralConfigFrom(".env")
-
-	if err != nil {
-		log.Printf("failed to load env: %v", err)
-		return err
-	}
+	generalConfig := config.NewGeneralConfig()
 
 	log.Println("Environment variables loaded")
 
@@ -114,6 +109,15 @@ func loggingMiddleware(c *gin.Context) {
 	}
 }
 
+func init() {
+	docs.SwaggerInfo.Title = "Marketplace API"
+	docs.SwaggerInfo.Description = "API реализующее работу с пользователями и объявлениями"
+	docs.SwaggerInfo.Version = "1.0"
+	docs.SwaggerInfo.Host = "localhost:8000"
+	docs.SwaggerInfo.BasePath = "/"
+	docs.SwaggerInfo.Schemes = []string{"http"}
+}
+
 func initializeGin() *gin.Engine {
 	engine := gin.New()
 	engine.Use(gin.Recovery())
@@ -127,7 +131,8 @@ func initializeGin() *gin.Engine {
 		AllowCredentials: true,
 		MaxAge:           1 * time.Hour,
 	}))
-	docs.SwaggerInfo.BasePath = ""
-	engine.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerfiles.Handler))
+	url := ginSwagger.URL("http://localhost:8000/swagger/doc.json")
+	engine.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerfiles.Handler, url))
+
 	return engine
 }
