@@ -20,7 +20,7 @@ func Init() {
 	projectRoot = wd
 
 	log.SetFlags(0)
-	log.SetPrefix("[user-service] ")
+	log.SetPrefix("[marketplace-service] ")
 	log.SetOutput(&relWriter{Out: os.Stdout})
 }
 

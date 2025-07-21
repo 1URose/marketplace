@@ -8,17 +8,13 @@ import (
 	"log"
 )
 
-// TODO: добавить тесты
-// TODO: добавить валидацию особенно на обновление
-// TODO: добавить единую обработку ошибок
-
 func main() {
 	ctx := context.Background()
 	logger.Init()
 
-	log.Println("Starting user-service")
+	log.Println("[cmd] Starting marketplace-service...")
 
 	if err := app.Run(ctx); err != nil {
-		log.Fatalf("Application terminated with error: %v", err)
+		log.Fatalf("[cmd] Application terminated with error: %v", err)
 	}
 }

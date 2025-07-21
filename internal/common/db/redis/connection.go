@@ -3,6 +3,7 @@ package redis
 import (
 	"context"
 	"fmt"
+	redisCfd "github.com/1URose/marketplace/internal/common/config/redis"
 	"log"
 
 	"github.com/go-redis/redis/v8"
@@ -12,9 +13,7 @@ type Client struct {
 	Connection *redis.Client
 }
 
-func NewRedisClient() (*Client, error) {
-
-	cfg := ReadConfigFromEnv()
+func NewRedisClient(cfg *redisCfd.Config) (*Client, error) {
 
 	addr := fmt.Sprintf("%s:%s", cfg.Host, cfg.Port)
 

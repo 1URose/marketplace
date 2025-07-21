@@ -11,7 +11,7 @@ import (
 func RegisterRoutes(ctx context.Context, engine *gin.Engine, connections *db.Connections) {
 	log.Println("[rest:user_profile] registering user_profile routers")
 
-	userRoute := routes.NewUserRoute(ctx, engine, connections.UserPostgresConn)
+	userRoute := routes.NewUserRoute(ctx, engine, connections.PostgresConn)
 
 	userRoute.RegisterRoutes()
 

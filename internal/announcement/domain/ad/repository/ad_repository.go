@@ -9,5 +9,5 @@ import (
 type AdRepository interface {
 	CreateAd(ctx context.Context, ad *entity.Ad) (*entity.Ad, error)
 	GetAllAds(ctx context.Context, filter *entityAF.AdFilter) ([]*entity.Ad, error)
-	GetAdByID(ctx context.Context, id int) (*entity.Ad, error)
+	CountAds(ctx context.Context) (int, error)
 }

@@ -10,12 +10,8 @@ type AdResponse struct {
 }
 
 func NewAdResponse(ad *entity.Ad, userID int) *AdResponse {
-	var isMine bool
-	if userID == ad.AuthorID {
-		isMine = true
-	}
 	return &AdResponse{
 		AdBaseResponse: NewAdBaseResponse(ad),
-		IsMine:         isMine,
+		IsMine:         userID == ad.AuthorID,
 	}
 }

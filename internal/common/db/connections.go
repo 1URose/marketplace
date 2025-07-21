@@ -2,20 +2,21 @@ package db
 
 import (
 	"fmt"
-	"github.com/1URose/marketplace/internal/auth_signup/infrastructure/config/redis"
+	"github.com/1URose/marketplace/internal/common/config"
 	"github.com/1URose/marketplace/internal/common/db/postgresql"
+	"github.com/1URose/marketplace/internal/common/db/redis"
 	"log"
 )
 
 type Connections struct {
-	UserPostgresConn *postgresql.Client
-	RedisConn        *redis.Client
+	PostgresConn *postgresql.Client
+	RedisConn    *redis.Client
 }
 
-func NewConnections() (*Connections, error) {
+func NewConnections(cfg *config.GeneralConfig) (*Connections, error) {
 	log.Println("Creating user Postgres connection")
 
-	userPostgresConn, err := postgresql.NewClient()
+	userPostgresConn, err := postgresql.NewClient(cfg.PostgresConfig)
 
 	if err != nil {
 		log.Printf("ERROR: user Postgres connection failed: %v", err)
@@ -27,7 +28,7 @@ func NewConnections() (*Connections, error) {
 
 	log.Println("Creating Redis connection")
 
-	redisConn, err := redis.NewRedisClient()
+	redisConn, err := redis.NewRedisClient(cfg.RedisConfig)
 	if err != nil {
 		log.Printf("ERROR: Redis connection failed: %v", err)
 
@@ -37,16 +38,16 @@ func NewConnections() (*Connections, error) {
 	log.Println("Redis connected")
 
 	return &Connections{
-		UserPostgresConn: userPostgresConn,
-		RedisConn:        redisConn,
+		PostgresConn: userPostgresConn,
+		RedisConn:    redisConn,
 	}, nil
 }
 
 func (c *Connections) Close() {
 	log.Println("Closing database connections…")
 
-	if c.UserPostgresConn != nil {
-		c.UserPostgresConn.Close()
+	if c.PostgresConn != nil {
+		c.PostgresConn.Close()
 
 		log.Println("User Postgres closed")
 	}

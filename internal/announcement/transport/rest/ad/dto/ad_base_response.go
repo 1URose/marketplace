@@ -12,6 +12,7 @@ type AdBaseResponse struct {
 	ImageURL    string `json:"image_url"`
 	Price       int    `json:"price"`
 	AuthorID    int    `json:"author_id"`
+	AuthorEmail string `json:"author_email"`
 	CreatedAt   string `json:"created_at"`
 }
 
@@ -22,7 +23,7 @@ func NewAdBaseResponse(ad *entity.Ad) AdBaseResponse {
 		Description: ad.Description,
 		ImageURL:    ad.ImageURL,
 		Price:       ad.Price,
-		AuthorID:    ad.AuthorID,
+		AuthorEmail: ad.AuthorEmail,
 		CreatedAt:   ad.CreatedAt.Format(time.RFC3339),
 	}
 }

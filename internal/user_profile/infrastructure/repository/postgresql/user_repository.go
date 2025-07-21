@@ -66,7 +66,7 @@ func (ur *UserRepository) GetAllUsers(ctx context.Context) ([]entity.User, error
 	log.Println("[postgresql:user_repo] GetAllUsers called")
 
 	query := `
-        SELECT id, username, email, password_hash, created_at
+        SELECT id, email, password_hash, created_at
         FROM users
     `
 	rows, err := ur.Connection.GetPool().Query(ctx, query)
@@ -114,45 +114,6 @@ func (ur *UserRepository) UpdateEmail(ctx context.Context, id int, email string)
 	if tag.RowsAffected() == 0 {
 		return fmt.Errorf("no user to update with id=%d", id)
 	}
-	return nil
-}
-
-func (ur *UserRepository) UpdatePassword(ctx context.Context, id int, passwordHash string) error {
-	const query = `
-        UPDATE users
-        SET password_hash = $1
-        WHERE id = $2
-    `
-	tag, err := ur.Connection.GetPool().Exec(ctx, query, passwordHash, id)
-	if err != nil {
-		return fmt.Errorf("update password failed: %w", err)
-	}
-	if tag.RowsAffected() == 0 {
-		return fmt.Errorf("no user to update with id=%d", id)
-	}
-	return nil
-}
-
-func (ur *UserRepository) DeleteUser(ctx context.Context, id int) error {
-	log.Printf("[postgresql:user_repo] DeleteUser called: id=%d", id)
-
-	query := `DELETE FROM users WHERE id = $1`
-
-	tag, err := ur.Connection.GetPool().Exec(ctx, query, id)
-	if err != nil {
-
-		log.Printf("[postgresql:user_repo][ERROR] delete failed: %v", err)
-
-		return fmt.Errorf("delete user failed: %w", err)
-	}
-
-	if tag.RowsAffected() == 0 {
-		log.Printf("[postgresql:user_repo] no user to delete for id=%d", id)
-		return fmt.Errorf("no user to delete for id=%d", id)
-	}
-
-	log.Printf("[postgresql:user_repo] DeleteUser succeeded: id=%d", id)
-
 	return nil
 }
 

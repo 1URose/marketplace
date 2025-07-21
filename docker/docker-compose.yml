@@ -1,3 +1,4 @@
 include:
-  - './postgres/users/docker-compose.postgres.marketplace.yml'
+  - './postgres/marketplace/docker-compose.postgres.marketplace.yml'
   - './redis/docker-compose.redis.yml'
+  - './go/docker-compose.go.marketplace.yml'

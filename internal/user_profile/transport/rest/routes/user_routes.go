@@ -48,8 +48,6 @@ func (ur *UserRoute) RegisterRoutes() {
 	handler := user.NewUserHandler(service)
 
 	{
-		api.GET("/:id", handler.GetUserByID)
-		log.Println("[routers:user] registered GET /user/:id")
 
 		api.GET("/", handler.GetAllUsers)
 		log.Println("[routers:user] registered GET /user/")

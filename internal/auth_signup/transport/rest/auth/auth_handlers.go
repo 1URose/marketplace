@@ -1,10 +1,11 @@
 package auth
 
 import (
-	"fmt"
 	"github.com/1URose/marketplace/internal/auth_signup/domain/redis/entity"
 	"github.com/1URose/marketplace/internal/auth_signup/transport/rest/auth/dto"
 	"github.com/1URose/marketplace/internal/auth_signup/use_cases"
+	dtoErr "github.com/1URose/marketplace/internal/common/transport/rest/dto"
+
 	"github.com/1URose/marketplace/internal/common/jwt"
 	"github.com/gin-gonic/gin"
 	"strconv"
@@ -16,13 +17,15 @@ import (
 
 type Handler struct {
 	AuthService *use_cases.AuthService
+	JWTManager  *jwt.Manager
 }
 
-func NewAuthHandler(authService *use_cases.AuthService) *Handler {
+func NewAuthHandler(authService *use_cases.AuthService, jwtManager *jwt.Manager) *Handler {
 	log.Println("[handler:auth] NewAuthHandler initialized")
 
 	return &Handler{
 		AuthService: authService,
+		JWTManager:  jwtManager,
 	}
 }
 
@@ -32,21 +35,23 @@ func NewAuthHandler(authService *use_cases.AuthService) *Handler {
 // @Tags         auth
 // @Accept       json
 // @Produce      json
-// @Param        user_input  body      dto.SignUpRequest     true  "User registration payload"
+// @Param        user_input  body      dto.SignUpRequest     true  "Регистрационные данные"
 // @Success      201         {object}  dto.SignUpResponse   "Успешная регистрация"
 // @Failure      400         {object}  dto.ErrorResponse    "Ошибка валидации"
 // @Failure      500         {object}  dto.ErrorResponse    "Внутренняя ошибка сервера"
-// @Router       /auth/register [post]
+// @Router       /auth/signup [post]
 func (ah *Handler) SignUp(ctx *gin.Context) {
 
 	log.Printf("[handler:auth] SignUpRequest called")
 
 	var signUpReq dto.SignUpRequest
 
-	if err := ctx.BindJSON(&signUpReq); err != nil {
+	if err := ctx.ShouldBindJSON(&signUpReq); err != nil {
 		log.Printf("[handler:auth][ERROR] bind body: %v", err)
 
-		ctx.JSON(http.StatusBadRequest, dto.ErrorResponse{Error: err.Error()})
+		ctx.JSON(http.StatusBadRequest, dtoErr.ErrorResponse{
+			Error: "Invalid request body",
+		})
 		return
 	}
 
@@ -55,8 +60,8 @@ func (ah *Handler) SignUp(ctx *gin.Context) {
 
 		log.Printf("[handler:auth][ERROR] SingUp failed: %v", err)
 
-		ctx.JSON(http.StatusInternalServerError, dto.ErrorResponse{
-			Error: err.Error(),
+		ctx.JSON(http.StatusInternalServerError, dtoErr.ErrorResponse{
+			Error: "Failed to create user",
 		})
 
 		return
@@ -85,10 +90,12 @@ func (ah *Handler) Login(ctx *gin.Context) {
 
 	var loginReq dto.LoginRequest
 
-	if err := ctx.BindJSON(&loginReq); err != nil {
+	if err := ctx.ShouldBindJSON(&loginReq); err != nil {
 		log.Printf("[handler:auth][ERROR] bind body: %v", err)
 
-		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body"})
+		ctx.JSON(http.StatusBadRequest, dtoErr.ErrorResponse{
+			Error: "Invalid request body",
+		})
 		return
 	}
 
@@ -98,7 +105,9 @@ func (ah *Handler) Login(ctx *gin.Context) {
 
 		log.Printf("[handler:auth][ERROR] Email failed: %v", err)
 
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to login"})
+		ctx.JSON(http.StatusInternalServerError, dtoErr.ErrorResponse{
+			Error: "Failed to login",
+		})
 
 		return
 	}
@@ -107,31 +116,37 @@ func (ah *Handler) Login(ctx *gin.Context) {
 
 		log.Printf("[handler:auth] invalid credentials for %q", loginReq.Email)
 
-		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
+		ctx.JSON(http.StatusUnauthorized, dtoErr.ErrorResponse{
+			Error: "Invalid credentials",
+		})
 
 		return
 	}
 
 	log.Printf("[handler:auth] authentication succeeded for %q", loginReq.Email)
 
-	accessToken, err := jwt.GenerateAccessToken(existsUser.Email, existsUser.ID)
+	accessToken, err := ah.JWTManager.GenerateAccessToken(existsUser.Email, existsUser.ID)
 
 	if err != nil {
 
 		log.Printf("[handler:auth][ERROR] GenerateAccessToken failed: %v", err)
 
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate access token"})
+		ctx.JSON(http.StatusInternalServerError, dtoErr.ErrorResponse{
+			Error: "Failed to generate access token",
+		})
 
 		return
 	}
 
-	refreshToken, err := jwt.GenerateRefreshToken(existsUser.Email, existsUser.ID)
+	refreshToken, err := ah.JWTManager.GenerateRefreshToken(existsUser.Email, existsUser.ID)
 
 	if err != nil {
 
 		log.Printf("[handler:auth][ERROR] GenerateRefreshToken failed: %v", err)
 
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate refresh token"})
+		ctx.JSON(http.StatusInternalServerError, dtoErr.ErrorResponse{
+			Error: "Failed to generate refresh token",
+		})
 
 		return
 	}
@@ -142,7 +157,9 @@ func (ah *Handler) Login(ctx *gin.Context) {
 
 		log.Printf("[handler:auth][ERROR] Redis Set failed: %v", err)
 
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to store token"})
+		ctx.JSON(http.StatusInternalServerError, dtoErr.ErrorResponse{
+			Error: "Failed to set session",
+		})
 
 		return
 	}
@@ -160,16 +177,23 @@ func (ah *Handler) Login(ctx *gin.Context) {
 // @Produce      json
 // @Param        Authorization    header    string                false  "Текущий access-токен: Bearer <token>"
 // @Param        X-Refresh-Token  header    string                true   "Refresh-токен: Bearer <token>"
-// @Success      200             {object}  dto.LoginResponse     "Новые access и refresh токены"
-// @Failure      401             {object}  dto.ErrorResponse     "Invalid or missing token"
-// @Failure      500             {object}  dto.ErrorResponse     "Server error"
+// @Success      200             {object}  dto.LoginResponse      "Новые access и refresh токены"
+// @Success      200             {object}  dto.StillValidResponse "Access токен ещё действует"
+// @Failure      401             {object}  dto.ErrorResponse      "Invalid or missing token"
+// @Failure      500             {object}  dto.ErrorResponse      "Server error"
 // @Router       /auth/refresh   [post]
 func (ah *Handler) Refresh(ctx *gin.Context) {
+	log.Printf("[handler:auth] Refresh called")
+
 	if authH := ctx.GetHeader("Authorization"); authH != "" {
 		parts := strings.SplitN(authH, " ", 2)
 		if len(parts) == 2 && parts[0] == "Bearer" {
-			if _, err := jwt.ValidateAccessToken(parts[1]); err == nil {
-				ctx.JSON(http.StatusOK, gin.H{"status": "access token still valid"})
+			if _, err := ah.JWTManager.ValidateAccessToken(parts[1]); err == nil {
+				log.Printf("[handler:auth] Refresh: access token still valid")
+				ctx.JSON(http.StatusOK, dto.StillValidResponse{
+					StillValid: true,
+					Detail:     "Access token is still valid",
+				})
 				return
 			}
 		}
@@ -177,92 +201,87 @@ func (ah *Handler) Refresh(ctx *gin.Context) {
 
 	raw := ctx.GetHeader("X-Refresh-Token")
 	if raw == "" {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "Missing refresh token"})
+		log.Printf("[handler:auth][ERROR] Missing refresh token")
+		ctx.JSON(http.StatusUnauthorized, dtoErr.ErrorResponse{
+			Error: "Missing refresh token",
+		})
 		return
 	}
 	parts := strings.SplitN(raw, " ", 2)
 	if len(parts) != 2 || parts[0] != "Bearer" {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid refresh token format"})
+		log.Printf("[handler:auth][ERROR] Invalid refresh token format: %q", raw)
+		ctx.JSON(http.StatusUnauthorized, dtoErr.ErrorResponse{
+			Error: "Invalid refresh token",
+		})
 		return
 	}
 	refreshToken := parts[1]
 
-	claims, err := jwt.ValidateRefreshToken(refreshToken)
+	claims, err := ah.JWTManager.ValidateRefreshToken(refreshToken)
 	if err != nil {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid refresh token"})
+		log.Printf("[handler:auth][ERROR] ValidateRefreshToken failed: %v", err)
+		ctx.JSON(http.StatusUnauthorized, dtoErr.ErrorResponse{
+			Error: "Invalid refresh token",
+		})
+		return
+	}
+	log.Printf("[handler:auth] Refresh: valid refresh token for email=%s", claims.Email)
+
+	session, err := ah.AuthService.RedisRepo.Get(ctx, claims.Email)
+	if err != nil {
+		log.Printf("[handler:auth][ERROR] Redis Get failed for email=%s: %v", claims.Email, err)
+		ctx.JSON(http.StatusUnauthorized, dtoErr.ErrorResponse{
+			Error: "Session not found or token mismatch",
+		})
+		return
+	}
+	if session == nil || session.RefreshToken != refreshToken {
+		log.Printf("[handler:auth][ERROR] Session not found or token mismatch: session=%v", session)
+		ctx.JSON(http.StatusUnauthorized, dtoErr.ErrorResponse{
+			Error: "Session not found or token mismatch",
+		})
 		return
 	}
 
-	session, err := ah.AuthService.RedisRepo.Get(ctx, claims.Email)
-	if err != nil || session == nil || session.RefreshToken != refreshToken {
-		ctx.JSON(http.StatusUnauthorized, gin.H{"error": "Session not found or token mismatch"})
-		return
-	}
 	userId, err := strconv.Atoi(claims.Subject)
 	if err != nil {
 		log.Printf("[handler:auth][ERROR] strconv.Atoi failed: %v", err)
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse user ID"})
+		ctx.JSON(http.StatusInternalServerError, dtoErr.ErrorResponse{
+			Error: "Failed to parse user id",
+		})
 		return
 	}
-	newAccess, err := jwt.GenerateAccessToken(claims.Email, userId)
+	newAccess, err := ah.JWTManager.GenerateAccessToken(claims.Email, userId)
 	if err != nil {
 		log.Printf("[handler:auth][ERROR] GenerateAccessToken failed: %v", err)
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate new access token"})
+		ctx.JSON(http.StatusInternalServerError, dtoErr.ErrorResponse{
+			Error: "Failed to generate new access token",
+		})
 		return
 	}
-	newRefresh, err := jwt.GenerateRefreshToken(claims.Email, userId)
+	newRefresh, err := ah.JWTManager.GenerateRefreshToken(claims.Email, userId)
 	if err != nil {
 		log.Printf("[handler:auth][ERROR] GenerateRefreshToken failed: %v", err)
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate new refresh token"})
+		ctx.JSON(http.StatusInternalServerError, dtoErr.ErrorResponse{
+			Error: "Failed to generate new refresh token",
+		})
 		return
 	}
+
+	log.Printf("[handler:auth] Session updated in Redis for email=%s", claims.Email)
 
 	session.RefreshToken = newRefresh
 	if err := ah.AuthService.RedisRepo.Set(ctx, session); err != nil {
 		log.Printf("[handler:auth][ERROR] Redis Set failed: %v", err)
-		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update session"})
+		ctx.JSON(http.StatusInternalServerError, dtoErr.ErrorResponse{
+			Error: "Failed to update session in Redis",
+		})
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"access_token":  newAccess,
-		"refresh_token": newRefresh,
-	})
-}
+	response := dto.NewLoginResponse(newAccess, newRefresh)
 
-func OptionalAuthMiddleware() gin.HandlerFunc {
-	return func(ctx *gin.Context) {
-		_ = parseAndSetClaims(ctx)
-		ctx.Next()
-	}
-}
+	ctx.JSON(http.StatusOK, response)
 
-func RequireAuthMiddleware() gin.HandlerFunc {
-	return func(ctx *gin.Context) {
-		if err := parseAndSetClaims(ctx); err != nil {
-			ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-				"error": "unauthorized",
-			})
-			return
-		}
-		ctx.Next()
-	}
-}
-
-func parseAndSetClaims(ctx *gin.Context) error {
-	auth := ctx.GetHeader("Authorization")
-	parts := strings.SplitN(auth, " ", 2)
-	if len(parts) != 2 || parts[0] != "Bearer" {
-		return fmt.Errorf("no bearer token")
-	}
-	claims, err := jwt.ValidateAccessToken(parts[1])
-	if err != nil {
-		return err
-	}
-
-	//ctx.Set("userEmail", claims.Email)
-	if uid, err := strconv.Atoi(claims.Subject); err == nil {
-		ctx.Set("userId", uid)
-	}
-	return nil
+	log.Printf("[handler:auth] Refresh succeeded: userID=%d", userId)
 }

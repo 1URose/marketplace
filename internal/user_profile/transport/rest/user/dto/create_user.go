@@ -5,7 +5,3 @@ type CreateUser struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
 }
-
-func (cu *CreateUser) GetEmail() string {
-	return cu.Email
-}

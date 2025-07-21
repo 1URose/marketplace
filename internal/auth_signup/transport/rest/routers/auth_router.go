@@ -6,6 +6,7 @@ import (
 	"github.com/1URose/marketplace/internal/auth_signup/transport/rest/auth"
 	"github.com/1URose/marketplace/internal/auth_signup/use_cases"
 	"github.com/1URose/marketplace/internal/common/db"
+	"github.com/1URose/marketplace/internal/common/jwt"
 	"github.com/1URose/marketplace/internal/user_profile/infrastructure/repository/postgresql"
 	"github.com/gin-gonic/gin"
 	"log"
@@ -14,16 +15,18 @@ import (
 type AuthRouter struct {
 	engine      *gin.Engine
 	ctx         context.Context
-	Connections *db.Connections
+	connections *db.Connections
+	jwtMgr      *jwt.Manager
 }
 
-func NewAuthRouter(ctx context.Context, engine *gin.Engine, connections *db.Connections) *AuthRouter {
+func NewAuthRouter(ctx context.Context, engine *gin.Engine, connections *db.Connections, jwtMgr *jwt.Manager) *AuthRouter {
 	log.Println("[routers:auth] initializing AuthRouter")
 
 	return &AuthRouter{
 		ctx:         ctx,
 		engine:      engine,
-		Connections: connections,
+		connections: connections,
+		jwtMgr:      jwtMgr,
 	}
 }
 
@@ -33,7 +36,7 @@ func initRedisServer(connections *db.Connections) *use_cases.AuthService {
 
 	redisR := redis.NewRedisRepository(connections.RedisConn)
 
-	userR := postgresql.NewUserRepository(connections.UserPostgresConn)
+	userR := postgresql.NewUserRepository(connections.PostgresConn)
 
 	svc := use_cases.NewAccountService(redisR, userR)
 
@@ -48,8 +51,8 @@ func (ar *AuthRouter) RegisterRoutes() {
 
 	apiGroup := ar.engine.Group("/auth")
 
-	service := initRedisServer(ar.Connections)
-	handler := auth.NewAuthHandler(service)
+	service := initRedisServer(ar.connections)
+	handler := auth.NewAuthHandler(service, ar.jwtMgr)
 
 	{
 

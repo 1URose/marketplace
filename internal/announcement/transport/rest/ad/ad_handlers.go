@@ -1,71 +1,100 @@
 package ad
 
 import (
-	"errors"
 	"github.com/1URose/marketplace/internal/announcement/transport/rest/ad/dto"
 	"github.com/1URose/marketplace/internal/announcement/use_cases"
+	dtoErr "github.com/1URose/marketplace/internal/common/transport/rest/dto"
 	"github.com/1URose/marketplace/internal/common/validator"
 	"github.com/gin-gonic/gin"
 	"log"
 	"net/http"
-	"strconv"
 )
 
 type Handler struct {
-	service *use_cases.AdService
+	service   *use_cases.AdService
+	validator *validator.AdAllowedValues
 }
 
-func NewHandler(service *use_cases.AdService) *Handler {
+func NewHandler(service *use_cases.AdService, validator *validator.AdAllowedValues) *Handler {
+	log.Println("[handler:ad] NewHandler initialized")
 	return &Handler{
-		service: service,
+		service:   service,
+		validator: validator,
 	}
 }
 
+// CreateAd godoc
+// @Summary      Создать новое объявление
+// @Description  Создаёт объявление от имени текущего пользователя
+// @Tags         ads
+// @Security     BearerAuth
+// @Accept       json
+// @Produce      json
+// @Param        Authorization  header    string                   true  "Bearer <access_token>"
+// @Param        ad             body      dto.CreateAdRequest       true  "Данные для создания объявления"
+// @Success      201            {object}  dto.CreateAdResponse     "Созданное объявление"
+// @Failure      400            {object}  dto.ErrorResponse        "Неверные данные запроса"
+// @Failure      401            {object}  dto.ErrorResponse        "Неавторизован"
+// @Failure      500            {object}  dto.ErrorResponse        "Внутренняя ошибка"
+// @Router       /ad [post]
 func (h *Handler) CreateAd(ctx *gin.Context) {
 	log.Println("[handler:ad] CreateAd called")
 
-	userId, err := h.getUserIdFromCtx(ctx)
-
-	if err != nil {
-		log.Println("[handler:ad][ERROR] getUserIdFromCtx: ", err)
-		ctx.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-			"error": "unauthorized",
-		})
-	}
+	userId := ctx.GetInt("userId")
+	userEmail, _ := ctx.Get("userEmail")
+	emailStr, _ := userEmail.(string)
 
 	var req dto.CreateAdRequest
 
-	if err := ctx.BindJSON(&req); err != nil {
+	if err := ctx.ShouldBindJSON(&req); err != nil {
 		log.Println("[handler:ad][ERROR] bind body: ", err)
-		ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"error": "Invalid request body",
+		ctx.AbortWithStatusJSON(http.StatusBadRequest, dtoErr.ErrorResponse{
+			Error: "Invalid request body",
 		})
 		return
 	}
 
-	if err := validator.ValidateCreateAd(req); err != nil {
+	if err := h.validator.ValidateCreateAd(req); err != nil {
 		log.Println("[handler:ad][ERROR] ValidateCreateAd: ", err)
-		ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
+		ctx.AbortWithStatusJSON(http.StatusBadRequest, dtoErr.ErrorResponse{
+			Error: "Invalid request body",
 		})
 		return
 	}
 
 	ad, err := h.service.CreateAd(ctx, userId, &req)
+	ad.AuthorEmail = emailStr
 
 	if err != nil {
 		log.Println("[handler:ad][ERROR] CreateAd: ", err)
-		ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
-			"error": "Failed to create ad",
+		ctx.AbortWithStatusJSON(http.StatusInternalServerError, dtoErr.ErrorResponse{
+			Error: "Failed to create ad",
 		})
 		return
 	}
 
 	createdAd := dto.NewCreateAdResponse(ad)
 
+	log.Println("[handler:ad] CreateAd succeeded: createAdResponse=", createdAd)
+
 	ctx.JSON(http.StatusCreated, createdAd)
 }
 
+// GetAllAds godoc
+// @Summary      Получить список объявлений
+// @Description  Возвращает постраничный, сортируемый и фильтруемый список объявлений
+// @Tags         ads
+// @Accept       json
+// @Produce      json
+// @Param        page        query     int     false  "Номер страницы"                   default(1)
+// @Param        sort_by     query     string  false  "Сортировать по полю"              Enums(created_at,price) default(created_at)
+// @Param        sort_order  query     string  false  "Порядок сортировки"               Enums(desc,asc)         default(desc)
+// @Param        min_price   query     int     false  "Минимальная цена фильтрации"      minimum(0)
+// @Param        max_price   query     int     false  "Максимальная цена фильтрации"     minimum(0)
+// @Success      200         {array}   dto.GetAllAdsResponse      "Список объявлений и количество страниц"
+// @Failure      400         {object}  dto.ErrorResponse          "Неверные параметры запроса"
+// @Failure      500         {object}  dto.ErrorResponse          "Внутренняя ошибка сервера"
+// @Router       /ads [get]
 func (h *Handler) GetAllAds(ctx *gin.Context) {
 	log.Println("[handler:ad] GetAllAds called")
 
@@ -73,87 +102,41 @@ func (h *Handler) GetAllAds(ctx *gin.Context) {
 
 	if err := ctx.ShouldBindQuery(&req); err != nil {
 		log.Println("[handler:ad][ERROR] bind query: ", err)
-		ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"error": "Invalid request body",
+		ctx.AbortWithStatusJSON(http.StatusBadRequest, dtoErr.ErrorResponse{
+			Error: "Invalid request query",
 		})
 		return
 	}
 
-	if err := validator.ValidateGetAllAdsRequest(&req); err != nil {
+	if err := h.validator.ValidateGetAllAdsRequest(&req); err != nil {
 		log.Println("[handler:ad][ERROR] ValidateGetAllAdsRequest: ", err)
-		ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
+		ctx.AbortWithStatusJSON(http.StatusBadRequest, dtoErr.ErrorResponse{
+			Error: err.Error(),
 		})
 		return
 	}
 
-	ads, err := h.service.GetAllAds(ctx, &req)
+	ads, countPages, err := h.service.GetAllAds(ctx, &req)
 	if err != nil {
 		log.Println("[handler:ad][ERROR] GetAllAds: ", err)
-		ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
-			"error": "Failed to get ads",
+		ctx.AbortWithStatusJSON(http.StatusInternalServerError, dtoErr.ErrorResponse{
+			Error: "Failed to get ads",
 		})
+		return
 	}
 
-	userId, _ := h.getUserIdFromCtx(ctx)
-	adsResponse := make([]*dto.AdResponse, 0, len(ads))
-
-	for _, ad := range ads {
-		adsResponse = append(adsResponse, dto.NewAdResponse(ad, userId))
+	var userId int
+	if ctx.GetBool("isAuthenticated") {
+		userId = ctx.GetInt("userId")
+		log.Printf("[handler:ad] GetAllAds: authenticated userId=%d", userId)
+	} else {
+		log.Println("[handler:ad] GetAllAds: guest access")
 	}
+
+	adsResponse := dto.NewGetAllAdsResponse(ads, userId, countPages)
+
+	log.Println("[handler:ad] GetAllAds succeeded: adsResponse=", adsResponse)
 
 	ctx.JSON(http.StatusOK, adsResponse)
 
-}
-
-func (h *Handler) GetAdByID(ctx *gin.Context) {
-	log.Println("[handler:ad] GetAdByID called")
-
-	adId := ctx.Param("id")
-
-	adIdInt, err := strconv.Atoi(adId)
-
-	if err != nil {
-		log.Println("[handler:ad][ERROR] strconv.Atoi: ", err)
-		ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
-			"error": "Invalid ad id",
-		})
-		return
-	}
-
-	ad, err := h.service.GetAdByID(ctx, adIdInt)
-
-	if err != nil {
-		log.Println("[handler:ad][ERROR] GetAdByID: ", err)
-		ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{
-			"error": "Failed to get ad",
-		})
-		return
-	}
-
-	if ad == nil {
-		ctx.AbortWithStatusJSON(http.StatusNotFound, gin.H{
-			"error": "Ad not found",
-		})
-		return
-	}
-
-	userId, _ := h.getUserIdFromCtx(ctx)
-
-	adResponse := dto.NewAdResponse(ad, userId)
-
-	ctx.JSON(http.StatusOK, adResponse)
-
-}
-
-func (h *Handler) getUserIdFromCtx(ctx *gin.Context) (int, error) {
-	userIdStr, ok := ctx.Get("UserId")
-	if !ok {
-		return 0, errors.New("no user in context")
-	}
-	id, ok := userIdStr.(int)
-	if !ok {
-		return 0, errors.New("userID has wrong type")
-	}
-	return id, nil
 }

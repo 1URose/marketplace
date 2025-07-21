@@ -9,6 +9,7 @@ type Ad struct {
 	ImageURL    string
 	Price       int
 	AuthorID    int
+	AuthorEmail string
 	CreatedAt   time.Time
 }
 
