@@ -2,6 +2,7 @@ package routes
 
 import (
 	"context"
+	"github.com/1URose/marketplace/internal/common/app"
 	pgConfig "github.com/1URose/marketplace/internal/common/db/postgresql"
 	pgRepo "github.com/1URose/marketplace/internal/user_profile/infrastructure/repository/postgresql"
 	"github.com/1URose/marketplace/internal/user_profile/transport/rest/user"
@@ -17,11 +18,11 @@ type UserRoute struct {
 	ctx      context.Context
 }
 
-func NewUserRoute(ctx context.Context, engine *gin.Engine, PGClient *pgConfig.Client) *UserRoute {
+func NewUserRoute(deps *app.Deps) *UserRoute {
 	return &UserRoute{
-		ctx:      ctx,
-		engine:   engine,
-		PGClient: PGClient,
+		PGClient: deps.DB.PostgresConn,
+		engine:   deps.Engine,
+		ctx:      deps.Ctx,
 	}
 }
 

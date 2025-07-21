@@ -17,11 +17,6 @@ const docTemplate = `{
     "paths": {
         "/ad": {
             "post": {
-                "security": [
-                    {
-                        "BearerToken": []
-                    }
-                ],
                 "description": "Создаёт объявление от имени текущего пользователя",
                 "consumes": [
                     "application/json"
@@ -36,7 +31,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "\u003caccess_token\u003e",
+                        "description": "JWT Access token",
                         "name": "Authorization",
                         "in": "header",
                         "required": true
@@ -81,11 +76,6 @@ const docTemplate = `{
         },
         "/ads": {
             "get": {
-                "security": [
-                    {
-                        "BearerToken": []
-                    }
-                ],
                 "description": "Возвращает постраничный, сортируемый и фильтруемый список объявлений",
                 "consumes": [
                     "application/json"
@@ -100,7 +90,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "Bearer \u003caccess_token\u003e — при передаче вернёт userId и отметит isAuthenticated",
+                        "description": "JWT Access token",
                         "name": "Authorization",
                         "in": "header"
                     },
@@ -349,7 +339,7 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "dto.AdResponse": {
+        "dto.AdBaseResponse": {
             "type": "object",
             "properties": {
                 "author_email": {
@@ -425,6 +415,9 @@ const docTemplate = `{
                 "image_url": {
                     "type": "string"
                 },
+                "is_mine": {
+                    "type": "boolean"
+                },
                 "price": {
                     "type": "integer"
                 },
@@ -450,7 +443,7 @@ const docTemplate = `{
                 "ads": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/dto.AdResponse"
+                        "$ref": "#/definitions/dto.AdBaseResponse"
                     }
                 },
                 "count_pages": {

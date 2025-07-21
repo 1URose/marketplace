@@ -3,18 +3,19 @@ package dto
 import "github.com/1URose/marketplace/internal/announcement/domain/ad/entity"
 
 type GetAllAdsResponse struct {
-	Ads        []*AdResponse `json:"ads"`
-	CountPages int           `json:"count_pages"`
+	Ads        []AdBaseResponse `json:"ads"`
+	CountPages int              `json:"count_pages"`
 }
 
-func NewGetAllAdsResponse(ads []*entity.Ad, userId, countPages int) GetAllAdsResponse {
-	adsResponse := make([]*AdResponse, 0, len(ads))
+func NewGetAllAdsResponse(ads []*entity.Ad, userID, countPages int) *GetAllAdsResponse {
+	resp := make([]AdBaseResponse, len(ads))
+	for i, a := range ads {
+		base := NewAdBaseResponse(a)
 
-	for _, ad := range ads {
-		adsResponse = append(adsResponse, NewAdResponse(ad, userId))
+		if userID != 0 && a.AuthorID == userID {
+			base.IsMine = true
+		}
+		resp[i] = base
 	}
-	return GetAllAdsResponse{
-		Ads:        adsResponse,
-		CountPages: countPages,
-	}
+	return &GetAllAdsResponse{Ads: resp, CountPages: countPages}
 }

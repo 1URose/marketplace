@@ -1,17 +1,15 @@
 package rest
 
 import (
-	"context"
-	"github.com/1URose/marketplace/internal/common/db"
+	"github.com/1URose/marketplace/internal/common/app"
 	"github.com/1URose/marketplace/internal/user_profile/transport/rest/routes"
-	"github.com/gin-gonic/gin"
 	"log"
 )
 
-func RegisterRoutes(ctx context.Context, engine *gin.Engine, connections *db.Connections) {
+func RegisterRoutes(deps *app.Deps) {
 	log.Println("[rest:user_profile] registering user_profile routers")
 
-	userRoute := routes.NewUserRoute(ctx, engine, connections.PostgresConn)
+	userRoute := routes.NewUserRoute(deps)
 
 	userRoute.RegisterRoutes()
 

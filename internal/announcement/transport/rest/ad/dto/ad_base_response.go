@@ -11,9 +11,10 @@ type AdBaseResponse struct {
 	Description string `json:"description"`
 	ImageURL    string `json:"image_url"`
 	Price       int    `json:"price"`
-	AuthorID    int    `json:"author_id"`
+	AuthorID    int    `json:"author_id,omitempty"`
 	AuthorEmail string `json:"author_email"`
 	CreatedAt   string `json:"created_at"`
+	IsMine      bool   `json:"is_mine,omitempty"`
 }
 
 func NewAdBaseResponse(ad *entity.Ad) AdBaseResponse {

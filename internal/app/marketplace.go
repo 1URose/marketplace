@@ -5,6 +5,11 @@
 // @host localhost:8080
 // @BasePath /
 // @schemes http
+//
+// @securityDefinitions.oauth2.bearerAuth BearerAuth
+// @type http
+// @scheme bearer
+// @bearerFormat JWT
 package app
 
 import (
@@ -13,9 +18,9 @@ import (
 	"github.com/1URose/marketplace/docs"
 	adApp "github.com/1URose/marketplace/internal/announcement/app"
 	authApp "github.com/1URose/marketplace/internal/auth_signup/app"
+	"github.com/1URose/marketplace/internal/common/app"
 	"github.com/1URose/marketplace/internal/common/config"
 	"github.com/1URose/marketplace/internal/common/db"
-	"github.com/1URose/marketplace/internal/common/jwt"
 	userApp "github.com/1URose/marketplace/internal/user_profile/app"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -51,11 +56,11 @@ func Run(ctx context.Context) error {
 
 	log.Println("Database connections established")
 
-	jwtManager := jwt.NewManager(generalConfig.CommonConfig)
+	deps := app.NewDeps(ctx, engine, connections, generalConfig)
 
-	userApp.Run(ctx, engine, connections)
-	authApp.Run(ctx, engine, connections, jwtManager)
-	adApp.Run(ctx, engine, connections, jwtManager, generalConfig.AdConfig)
+	userApp.Run(deps)
+	authApp.Run(deps)
+	adApp.Run(deps)
 
 	addr := generalConfig.CommonConfig.GinAddress
 	swaggerURL := fmt.Sprintf("http://localhost%s/swagger/index.html", addr)

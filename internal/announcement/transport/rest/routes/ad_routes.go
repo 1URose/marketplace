@@ -6,7 +6,8 @@ import (
 	"github.com/1URose/marketplace/internal/announcement/transport/rest/ad"
 	"github.com/1URose/marketplace/internal/announcement/use_cases"
 	"github.com/1URose/marketplace/internal/auth_signup/transport/rest/auth"
-	"github.com/1URose/marketplace/internal/common/config/ad_limits"
+	"github.com/1URose/marketplace/internal/common/app"
+	"github.com/1URose/marketplace/internal/common/config"
 	"github.com/1URose/marketplace/internal/common/jwt"
 	"github.com/1URose/marketplace/internal/common/validator"
 
@@ -17,21 +18,23 @@ import (
 )
 
 type AdRoute struct {
-	ctx      context.Context
-	engine   *gin.Engine
-	pgClient *pgConfig.Client
-	jwtMgr   *jwt.Manager
-	cfg      *ad_limits.AdConfig
+	ctx            context.Context
+	engine         *gin.Engine
+	pgClient       *pgConfig.Client
+	jwtMgr         *jwt.Manager
+	cfg            *config.GeneralConfig
+	authMiddleware *auth.Middleware
 }
 
-func NewAdRoute(ctx context.Context, engine *gin.Engine, PGClient *pgConfig.Client, jwtMgr *jwt.Manager, cfg *ad_limits.AdConfig) *AdRoute {
+func NewAdRoute(deps *app.Deps) *AdRoute {
 	log.Println("[routers:ad] initializing AdRoute")
 	return &AdRoute{
-		ctx:      ctx,
-		engine:   engine,
-		pgClient: PGClient,
-		jwtMgr:   jwtMgr,
-		cfg:      cfg,
+		ctx:            deps.Ctx,
+		engine:         deps.Engine,
+		pgClient:       deps.DB.PostgresConn,
+		jwtMgr:         deps.JWTManager,
+		cfg:            deps.GeneralConfig,
+		authMiddleware: deps.AuthMiddleware,
 	}
 }
 
@@ -51,20 +54,20 @@ func initAdService(PGClient *pgConfig.Client, pageSize int) *use_cases.AdService
 func (ar *AdRoute) RegisterRoutes() {
 	log.Println("[routers:ad] registering /ad endpoints")
 
-	service := initAdService(ar.pgClient, ar.cfg.PageSize)
+	service := initAdService(ar.pgClient, ar.cfg.AdConfig.PageSize)
 
-	v := validator.NewAllowedValues(ar.cfg)
+	v := validator.NewAllowedValues(ar.cfg.AdConfig)
 
 	handler := ad.NewHandler(service, v)
 
-	privateApiGroup := ar.engine.Group("/ad").Use(auth.RequireAuthMiddleware(ar.jwtMgr))
+	privateApiGroup := ar.engine.Group("/ad").Use(ar.authMiddleware.Require())
 
 	{
 		privateApiGroup.POST("/", handler.CreateAd)
 		log.Println("[routers:ad] registered POST /ad/")
 	}
 
-	publicApiGroup := ar.engine.Group("/ads").Use(auth.OptionalAuthMiddleware(ar.jwtMgr))
+	publicApiGroup := ar.engine.Group("/ads").Use(ar.authMiddleware.Optional())
 	{
 		publicApiGroup.GET("/", handler.GetAllAds)
 		log.Println("[routers:ad] registered GET /ad/")

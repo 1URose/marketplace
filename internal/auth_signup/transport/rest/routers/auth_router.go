@@ -5,6 +5,7 @@ import (
 	"github.com/1URose/marketplace/internal/auth_signup/infrastructure/repository/redis"
 	"github.com/1URose/marketplace/internal/auth_signup/transport/rest/auth"
 	"github.com/1URose/marketplace/internal/auth_signup/use_cases"
+	"github.com/1URose/marketplace/internal/common/app"
 	"github.com/1URose/marketplace/internal/common/db"
 	"github.com/1URose/marketplace/internal/common/jwt"
 	"github.com/1URose/marketplace/internal/user_profile/infrastructure/repository/postgresql"
@@ -14,19 +15,19 @@ import (
 
 type AuthRouter struct {
 	engine      *gin.Engine
-	ctx         context.Context
 	connections *db.Connections
 	jwtMgr      *jwt.Manager
+	ctx         context.Context
 }
 
-func NewAuthRouter(ctx context.Context, engine *gin.Engine, connections *db.Connections, jwtMgr *jwt.Manager) *AuthRouter {
+func NewAuthRouter(deps *app.Deps) *AuthRouter {
 	log.Println("[routers:auth] initializing AuthRouter")
 
 	return &AuthRouter{
-		ctx:         ctx,
-		engine:      engine,
-		connections: connections,
-		jwtMgr:      jwtMgr,
+		engine:      deps.Engine,
+		connections: deps.DB,
+		jwtMgr:      deps.JWTManager,
+		ctx:         deps.Ctx,
 	}
 }
 

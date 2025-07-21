@@ -18,3 +18,5 @@ CREATE TABLE ads
 );
 
 CREATE INDEX idx_ads_created_at ON ads(created_at DESC);
+
+CREATE INDEX idx_ads_price ON ads(price DESC);

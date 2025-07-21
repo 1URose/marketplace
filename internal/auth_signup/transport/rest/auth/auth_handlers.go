@@ -50,7 +50,8 @@ func (ah *Handler) SignUp(ctx *gin.Context) {
 		log.Printf("[handler:auth][ERROR] bind body: %v", err)
 
 		ctx.JSON(http.StatusBadRequest, dtoErr.ErrorResponse{
-			Error: "Invalid request body",
+			Error:  "Invalid request body",
+			Detail: err.Error(),
 		})
 		return
 	}
@@ -94,7 +95,8 @@ func (ah *Handler) Login(ctx *gin.Context) {
 		log.Printf("[handler:auth][ERROR] bind body: %v", err)
 
 		ctx.JSON(http.StatusBadRequest, dtoErr.ErrorResponse{
-			Error: "Invalid request body",
+			Error:  "Invalid request body",
+			Detail: err.Error(),
 		})
 		return
 	}
@@ -106,7 +108,8 @@ func (ah *Handler) Login(ctx *gin.Context) {
 		log.Printf("[handler:auth][ERROR] Email failed: %v", err)
 
 		ctx.JSON(http.StatusInternalServerError, dtoErr.ErrorResponse{
-			Error: "Failed to login",
+			Error:  "Failed to login",
+			Detail: err.Error(),
 		})
 
 		return

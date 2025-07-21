@@ -1,18 +1,14 @@
 package app
 
 import (
-	"context"
 	"github.com/1URose/marketplace/internal/announcement/transport/rest"
-	"github.com/1URose/marketplace/internal/common/config/ad_limits"
-	"github.com/1URose/marketplace/internal/common/db"
-	"github.com/1URose/marketplace/internal/common/jwt"
-	"github.com/gin-gonic/gin"
+	"github.com/1URose/marketplace/internal/common/app"
 	"log"
 )
 
-func Run(ctx context.Context, engine *gin.Engine, connections *db.Connections, jwtMgr *jwt.Manager, cfg *ad_limits.AdConfig) {
+func Run(deps *app.Deps) {
 	log.Println("[announcement] registering routers")
 
-	rest.RegisterRoutes(ctx, engine, connections, jwtMgr, cfg)
+	rest.RegisterRoutes(deps)
 	log.Println("[announcement] routers registered successfully")
 }
