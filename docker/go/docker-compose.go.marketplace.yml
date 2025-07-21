@@ -5,6 +5,9 @@
       context: .
       dockerfile: Dockerfile
     image: iuroze/go-marketplace:latest
+    environment:
+      - GIN_ADDRESS=:8000
+    network_mode: "host"
     env_file:
       - ../../.env
     ports:
