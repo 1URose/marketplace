@@ -2,7 +2,7 @@
   go-service:
     container_name: go-marketplace
     build:
-      context: .
+      context: ../../.
       dockerfile: Dockerfile
     image: iuroze/go-marketplace:latest
     env_file:
