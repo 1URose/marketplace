@@ -1,0 +1,22 @@
+﻿services:
+  go-service:
+    container_name: go-marketplace
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: iuroze/go-marketplace:latest
+    env_file:
+      - ../../.env
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres-db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - shared
+
+networks:
+  shared:

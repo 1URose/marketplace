@@ -19,31 +19,6 @@ func NewUserService(repo repository.UserRepository) *UserService {
 	return &UserService{Repo: repo}
 }
 
-func (us *UserService) GetUserByID(ctx context.Context, id int) (*entity.User, error) {
-
-	log.Printf("[usecase:user] GetUserByID called: id=%d", id)
-
-	user, err := us.Repo.GetUserByID(ctx, id)
-
-	if err != nil {
-
-		log.Printf("[usecase:user][ERROR] GetUserByID: %v", err)
-
-		return nil, fmt.Errorf("get user by id: %w", err)
-	}
-
-	if user == nil {
-
-		log.Printf("[usecase:user] GetUserByID: no user found for id=%d", id)
-
-	} else {
-
-		log.Printf("[usecase:user] GetUserByID succeeded: user=%+v", user)
-	}
-
-	return user, nil
-}
-
 func (us *UserService) GetAllUsers(ctx context.Context) ([]entity.User, error) {
 
 	log.Println("[usecase:user] GetAllUsers called")

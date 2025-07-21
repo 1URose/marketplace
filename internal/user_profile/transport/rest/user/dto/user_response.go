@@ -6,9 +6,10 @@ import (
 )
 
 type UserResponse struct {
-	ID        int    `json:"id"`
-	Email     string `json:"email"`
-	CreatedAt string `json:"created_at"`
+	ID           int    `json:"id"`
+	Email        string `json:"email"`
+	PasswordHash string `json:"password_hash,omitempty"`
+	CreatedAt    string `json:"created_at"`
 }
 
 func NewUserResponse(user *entity.User) *UserResponse {

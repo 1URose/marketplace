@@ -1,11 +1,14 @@
 package app
 
 import (
-	"context"
-	"github.com/1URose/marketplace/internal/common/db"
-	"github.com/gin-gonic/gin"
+	"github.com/1URose/marketplace/internal/announcement/transport/rest"
+	"github.com/1URose/marketplace/internal/common/app"
+	"log"
 )
 
-func Run(ctx context.Context, engine *gin.Engine, connections *db.Connections) {
+func Run(deps *app.Deps) {
+	log.Println("[announcement] registering routers")
 
+	rest.RegisterRoutes(deps)
+	log.Println("[announcement] routers registered successfully")
 }

@@ -15,6 +15,154 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/ad": {
+            "post": {
+                "description": "Создаёт объявление от имени текущего пользователя",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "ads"
+                ],
+                "summary": "Создать новое объявление",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "JWT Access token",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    },
+                    {
+                        "description": "Данные для создания объявления",
+                        "name": "ad",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.CreateAdRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Созданное объявление",
+                        "schema": {
+                            "$ref": "#/definitions/dto.CreateAdResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Неверные данные запроса",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Неавторизован",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Внутренняя ошибка",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/ads": {
+            "get": {
+                "description": "Возвращает постраничный, сортируемый и фильтруемый список объявлений",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "ads"
+                ],
+                "summary": "Получить список объявлений",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "JWT Access token",
+                        "name": "Authorization",
+                        "in": "header"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "Номер страницы",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "created_at",
+                            "price"
+                        ],
+                        "type": "string",
+                        "default": "created_at",
+                        "description": "Сортировать по полю",
+                        "name": "sort_by",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "desc",
+                            "asc"
+                        ],
+                        "type": "string",
+                        "default": "desc",
+                        "description": "Порядок сортировки",
+                        "name": "sort_order",
+                        "in": "query"
+                    },
+                    {
+                        "minimum": 0,
+                        "type": "integer",
+                        "description": "Минимальная цена фильтрации",
+                        "name": "min_price",
+                        "in": "query"
+                    },
+                    {
+                        "minimum": 0,
+                        "type": "integer",
+                        "description": "Максимальная цена фильтрации",
+                        "name": "max_price",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Список объявлений и количество страниц",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/dto.GetAllAdsResponse"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Неверные параметры запроса",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Внутренняя ошибка сервера",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/auth/login": {
             "post": {
                 "description": "Аутентификация пользователя и возврат токенов JWT",
@@ -97,9 +245,9 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "Новые access и refresh токены",
+                        "description": "Access токен ещё действует",
                         "schema": {
-                            "$ref": "#/definitions/dto.LoginResponse"
+                            "$ref": "#/definitions/dto.StillValidResponse"
                         }
                     },
                     "401": {
@@ -117,7 +265,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/auth/register": {
+        "/auth/signup": {
             "post": {
                 "description": "Создать обычного пользователя",
                 "consumes": [
@@ -132,7 +280,7 @@ const docTemplate = `{
                 "summary": "Регистрация нового пользователя",
                 "parameters": [
                     {
-                        "description": "User registration payload",
+                        "description": "Регистрационные данные",
                         "name": "user_input",
                         "in": "body",
                         "required": true,
@@ -165,7 +313,7 @@ const docTemplate = `{
         },
         "/user": {
             "get": {
-                "description": "Возвращает список всех пользователей",
+                "description": "Возвращает список всех пользователей вместе с их данными(Хэш пароль в частности - для тестирования)",
                 "produces": [
                     "application/json"
                 ],
@@ -177,66 +325,13 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/dto.UserResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
-        "/user/{id}": {
-            "get": {
-                "description": "Возвращает информацию о пользователе по его ID",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "user"
-                ],
-                "summary": "Получение пользователя по ID",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "description": "ID пользователя",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     }
                 }
@@ -244,11 +339,115 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "dto.AdBaseResponse": {
+            "type": "object",
+            "properties": {
+                "author_email": {
+                    "type": "string"
+                },
+                "author_id": {
+                    "type": "integer"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "image_url": {
+                    "type": "string"
+                },
+                "is_mine": {
+                    "type": "boolean"
+                },
+                "price": {
+                    "type": "integer"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.CreateAdRequest": {
+            "type": "object",
+            "required": [
+                "description",
+                "image_url",
+                "price",
+                "title"
+            ],
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "image_url": {
+                    "type": "string"
+                },
+                "price": {
+                    "type": "integer"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.CreateAdResponse": {
+            "type": "object",
+            "properties": {
+                "author_email": {
+                    "type": "string"
+                },
+                "author_id": {
+                    "type": "integer"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "image_url": {
+                    "type": "string"
+                },
+                "is_mine": {
+                    "type": "boolean"
+                },
+                "price": {
+                    "type": "integer"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
         "dto.ErrorResponse": {
             "type": "object",
             "properties": {
+                "detail": {
+                    "type": "string"
+                },
                 "error": {
                     "type": "string"
+                }
+            }
+        },
+        "dto.GetAllAdsResponse": {
+            "type": "object",
+            "properties": {
+                "ads": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dto.AdBaseResponse"
+                    }
+                },
+                "count_pages": {
+                    "type": "integer"
                 }
             }
         },
@@ -303,6 +502,17 @@ const docTemplate = `{
                 }
             }
         },
+        "dto.StillValidResponse": {
+            "type": "object",
+            "properties": {
+                "detail": {
+                    "type": "string"
+                },
+                "still_valid": {
+                    "type": "boolean"
+                }
+            }
+        },
         "dto.UserResponse": {
             "type": "object",
             "properties": {
@@ -314,16 +524,11 @@ const docTemplate = `{
                 },
                 "id": {
                     "type": "integer"
+                },
+                "password_hash": {
+                    "type": "string"
                 }
             }
-        }
-    },
-    "securityDefinitions": {
-        "BearerAuth": {
-            "description": "Type \"Bearer\" followed by a space and JWT token.",
-            "type": "apiKey",
-            "name": "Authorization",
-            "in": "header"
         }
     }
 }`
@@ -334,8 +539,8 @@ var SwaggerInfo = &swag.Spec{
 	Host:             "localhost:8080",
 	BasePath:         "/",
 	Schemes:          []string{"http"},
-	Title:            "User Info API",
-	Description:      "API для работы с пользователями и ритейлерами",
+	Title:            "Marketplace API",
+	Description:      "API реализующее работу с пользователями и объявлениями",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

@@ -3,6 +3,7 @@ package postgresql
 import (
 	"context"
 	"fmt"
+	"github.com/1URose/marketplace/internal/common/config/postgresql"
 	"log"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -12,11 +13,9 @@ type Client struct {
 	pool *pgxpool.Pool
 }
 
-func NewClient() (*Client, error) {
+func NewClient(cfg *postgresql.Config) (*Client, error) {
 
 	log.Println("[postgresql:user] loading config from env")
-
-	cfg := ReadConfigFromEnv()
 
 	connStr := fmt.Sprintf(
 		"postgresql://%s:%s@%s:%s/%s",

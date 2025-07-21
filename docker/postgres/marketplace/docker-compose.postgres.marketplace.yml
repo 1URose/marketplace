@@ -1,34 +1,35 @@
 ﻿services:
-  postgres-db-users:
-    container_name: postgresDbUsers
+  postgres-db:
+    container_name: postgresDb
     image: postgres:16.0
     environment:
       POSTGRES_USER: user
       POSTGRES_PASSWORD: password
-      POSTGRES_DB: user_db
+      POSTGRES_DB: db
     healthcheck:
-      test: ["CMD", "pg_isready", "-U", "user"]
+      test: ["CMD", "pg_isready", "-U", "user", "-d", "db"]
       interval: 5s
       timeout: 10s
       retries: 120
     ports:
       - '25432:5432'
     volumes:
-      - postgres-data-users:/var/lib/postgresql/data
+      - postgres-data:/var/lib/postgresql/data
     networks:
       - shared
 
-  liquibase-migrations-users:
-    container_name: migrationsUsers
+  liquibase-migrations:
+    container_name: migrations
     image: liquibase/liquibase:4.29
     depends_on:
-      postgres-db-users:
+      postgres-db:
         condition: service_healthy
+    working_dir: /changelog
     command: >
       liquibase
       --searchPath=/changelog
       --changelog-file=db.changelog-master.yaml
-      --url=jdbc:postgresql://postgres-db-users:5432/user_db
+      --url=jdbc:postgresql://postgres-db:5432/db
       --username=user
       --password=password
       --driver=org.postgresql.Driver
@@ -39,7 +40,7 @@
       - shared
 
 volumes:
-  postgres-data-users:
+  postgres-data:
 
 networks:
   shared:

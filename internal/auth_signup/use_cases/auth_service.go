@@ -60,28 +60,28 @@ func (as *AuthService) SingUp(ctx context.Context, req dto.SignUpRequest) (*enti
 	return createdUser, nil
 }
 
-func (as *AuthService) Login(ctx context.Context, req dto.LoginRequest) (bool, error) {
+func (as *AuthService) Login(ctx context.Context, req dto.LoginRequest) (*entity.User, error) {
 
 	log.Printf("[auth] Email called: req=%+v", req)
 
-	exists, err := as.UserRepo.GetUserByEmail(ctx, req.Email)
+	existsUser, err := as.UserRepo.GetUserByEmail(ctx, req.Email)
 	if err != nil {
 		log.Printf("[auth][ERROR] get user by email: %v", err)
-		return false, err
+		return nil, err
 	}
 
-	if exists == nil {
+	if existsUser == nil {
 		log.Printf("[auth][ERROR] user with email=%s not found", req.Email)
-		return false, fmt.Errorf("user with email=%s not found", req.Email)
+		return nil, fmt.Errorf("user with email=%s not found", req.Email)
 	}
 
-	ok := password.CheckPasswordHash(req.Password, exists.PasswordHash)
+	ok := password.CheckPasswordHash(req.Password, existsUser.PasswordHash)
 	if !ok {
 		log.Printf("[auth][ERROR] password verification failed")
-		return false, fmt.Errorf("password verification failed")
+		return nil, fmt.Errorf("password verification failed")
 	}
 
 	log.Printf("[auth] Email succesful")
 
-	return ok, nil
+	return existsUser, nil
 }

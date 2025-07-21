@@ -2,86 +2,89 @@
 // @title Marketplace API
 // @version 1.0
 // @description API реализующее работу с пользователями и объявлениями
-// @host localhost:8080
+// @host localhost:8000
 // @BasePath /
 // @schemes http
 //
-// @securityDefinitions.apikey BearerAuth
-// @in header
-// @name Authorization
-// @description Тип "Bearer" следует указать в качестве значения этого заголовка
+// @securityDefinitions.oauth2.bearerAuth BearerAuth
+// @type http
+// @scheme bearer
+// @bearerFormat JWT
 package app
 
 import (
 	"context"
 	"fmt"
 	"github.com/1URose/marketplace/docs"
+	adApp "github.com/1URose/marketplace/internal/announcement/app"
 	authApp "github.com/1URose/marketplace/internal/auth_signup/app"
+	"github.com/1URose/marketplace/internal/common/app"
+	"github.com/1URose/marketplace/internal/common/config"
 	"github.com/1URose/marketplace/internal/common/db"
-	"github.com/1URose/marketplace/internal/common/settings"
 	userApp "github.com/1URose/marketplace/internal/user_profile/app"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	swaggerfiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"log"
 )
 
 func Run(ctx context.Context) error {
-	engine := gin.New()
-	engine.Use(gin.Recovery())
-	engine.Use(loggingMiddleware)
+	engine := initializeGin()
 
-	engine.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"*"},
-		AllowMethods:     []string{"*"},
-		AllowHeaders:     []string{"*"},
-		ExposeHeaders:    []string{"*"},
-		AllowCredentials: true,
-		MaxAge:           1 * time.Hour,
-	}))
-
-	docs.SwaggerInfo.BasePath = ""
-	engine.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerfiles.Handler))
-
-	if err := settings.LoadEnv(".env"); err != nil {
-
-		log.Printf("failed to load env: %v", err)
-
-		return err
-	}
+	generalConfig := config.NewGeneralConfig()
 
 	log.Println("Environment variables loaded")
 
-	connections, err := db.NewConnections()
-
+	connections, err := db.NewConnections(generalConfig)
+	defer connections.Close()
 	if err != nil {
-
 		log.Printf("failed to establish connections: %v", err)
-
 		return err
 	}
-
-	defer connections.Close()
 
 	log.Println("Database connections established")
 
-	userApp.Run(ctx, engine, connections)
-	authApp.Run(ctx, engine, connections)
+	deps := app.NewDeps(ctx, engine, connections, generalConfig)
 
-	addr := ":8080"
+	userApp.Run(deps)
+	authApp.Run(deps)
+	adApp.Run(deps)
+
+	addr := generalConfig.CommonConfig.GinAddress
 	swaggerURL := fmt.Sprintf("http://localhost%s/swagger/index.html", addr)
 	log.Printf("Swagger UI available at %s", swaggerURL)
 
-	if err = engine.Run(addr); err != nil {
-
-		log.Printf("Error starting the application: %v", err)
-
-		return err
+	srv := &http.Server{
+		Addr:    addr,
+		Handler: engine,
 	}
 
+	go func() {
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("listen: %s", err)
+		}
+	}()
+	log.Printf("Server is running at %s", addr)
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
+	<-quit
+	log.Println("Shutdown Server ...")
+
+	ctxShutdown, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := srv.Shutdown(ctxShutdown); err != nil {
+		log.Fatalf("Server Shutdown: %v", err)
+	}
+
+	log.Println("Server exiting")
 	return nil
 }
 
@@ -104,4 +107,32 @@ func loggingMiddleware(c *gin.Context) {
 		log.Printf("INFO: status=%d method=%s path=%s ip=%s latency=%v",
 			status, method, path, ip, latency)
 	}
+}
+
+func init() {
+	docs.SwaggerInfo.Title = "Marketplace API"
+	docs.SwaggerInfo.Description = "API реализующее работу с пользователями и объявлениями"
+	docs.SwaggerInfo.Version = "1.0"
+	docs.SwaggerInfo.Host = "localhost:8000"
+	docs.SwaggerInfo.BasePath = "/"
+	docs.SwaggerInfo.Schemes = []string{"http"}
+}
+
+func initializeGin() *gin.Engine {
+	engine := gin.New()
+	engine.Use(gin.Recovery())
+	engine.Use(loggingMiddleware)
+
+	engine.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"*"},
+		AllowMethods:     []string{"*"},
+		AllowHeaders:     []string{"*"},
+		ExposeHeaders:    []string{"*"},
+		AllowCredentials: true,
+		MaxAge:           1 * time.Hour,
+	}))
+	url := ginSwagger.URL("http://localhost:8000/swagger/doc.json")
+	engine.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerfiles.Handler, url))
+
+	return engine
 }

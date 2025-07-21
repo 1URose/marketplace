@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/1URose/marketplace/internal/auth_signup/domain/redis/entity"
-	"github.com/1URose/marketplace/internal/auth_signup/infrastructure/config/redis"
+	"github.com/1URose/marketplace/internal/common/db/redis"
 	"log"
 	"time"
 )

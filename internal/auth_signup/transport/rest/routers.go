@@ -1,18 +1,15 @@
 package rest
 
 import (
-	"context"
 	"github.com/1URose/marketplace/internal/auth_signup/transport/rest/routers"
-	"github.com/1URose/marketplace/internal/common/db"
-	"github.com/gin-gonic/gin"
-
+	"github.com/1URose/marketplace/internal/common/app"
 	"log"
 )
 
-func RegisterRoutes(ctx context.Context, engine *gin.Engine, connections *db.Connections) {
+func RegisterRoutes(deps *app.Deps) {
 	log.Println("[rest:auth_signup] registering auth routers")
 
-	authRouter := routers.NewAuthRouter(ctx, engine, connections)
+	authRouter := routers.NewAuthRouter(deps)
 	authRouter.RegisterRoutes()
 
 	log.Println("[rest:auth_signup] auth routers registered successfully")
