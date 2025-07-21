@@ -78,9 +78,5 @@ Marketplace — REST-сервис для создания и просмотра 
    * **Регистрация**: `POST /auth/signup`
    * **Логин**: `POST /auth/login` → получите `accessToken` и `refreshToken`
    * **Создать объявление**: `POST /ad` с заголовком
-     `Authorization: Bearer <accessToken>`
+     `Authorization: <accessToken>` под капотом используется `Beared <accessToken>`
    * **Список объявлений**: `GET /ads?page=1&sort_by=price&sort_order=asc&min_price=100&max_price=1000`
-
----
-
-Остались вопросы? Загляните в Swagger или в исходники модулей — архитектура построена по принципам “чистой” (слоистой) структуры: domain → use\_cases → repository → transport. Удачной работы!
