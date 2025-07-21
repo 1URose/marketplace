@@ -4,7 +4,7 @@
     build:
       context: .
       dockerfile: Dockerfile
-    image: go-marketplace:latest
+    image: iuroze/go-marketplace:latest
     env_file:
       - ../../.env
     ports:
